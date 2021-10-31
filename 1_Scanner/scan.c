@@ -209,6 +209,7 @@ TokenType getToken(void)
                     state = DONE;
                     currentToken = OVER;
                 }
+                break;
             case INCOMMENT:
                 save = FALSE;
                 if (c == EOF)
