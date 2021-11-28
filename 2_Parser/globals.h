@@ -82,7 +82,6 @@ typedef enum
     AssignmentK,
     OperatorK,
     ConstantK,
-    ArrayIndexK,
     CallK,
     VarK,
     TypeK
@@ -100,9 +99,7 @@ typedef enum
 typedef enum
 {
     Integer,
-    IntegerArray,
-    Void,
-    VoidArray
+    Void
 } ExpType;
 
 #define MAXCHILDREN 3

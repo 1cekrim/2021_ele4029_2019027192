@@ -283,9 +283,6 @@ void printTree(TreeNode* tree)
                 case ConstantK:
                     fprintf(listing, "Const: %d\n", tree->attr.val);
                     break;
-                case ArrayIndexK:
-                    fprintf(listing, "!!!ArrayIndexK cannot be included in the tree!!!\n");
-                    break;
                 case CallK:
                     fprintf(listing, "Call: function name = %s\n", tree->attr.name);
                     break;
