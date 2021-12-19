@@ -112,6 +112,8 @@ typedef enum
 
 #define MAXCHILDREN 3
 
+struct ScopeListRec;
+
 typedef struct treeNode
 {
     struct treeNode* child[MAXCHILDREN];
@@ -132,6 +134,7 @@ typedef struct treeNode
     } attr;
     ExpType type; /* for type checking of exps */
     int isarray;
+    struct ScopeListRec* scope;
 } TreeNode;
 
 /**************************************************/

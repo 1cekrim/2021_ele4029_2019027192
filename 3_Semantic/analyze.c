@@ -40,6 +40,12 @@ static void declarationError(TreeNode* t, char* message)
     Error = TRUE;
 }
 
+static void argCountError(TreeNode* t, char* funcName, int paramCount, int argCount)
+{
+    fprintf(listing, "The %s function has %d parameters, but only %d entered.\n", t->lineno, funcName, paramCount, argCount);
+    Error = TRUE;
+}
+
 /* Procedure traverse is a generic recursive
  * syntax tree traversal routine:
  * it applies preProc in preorder and postProc
@@ -112,17 +118,17 @@ static int built_in_functions(ScopeList scope, int location)
 {
     // output
     {
-        st_insert(scope, "output", Integer, FALSE, FuncSymbol, 0, location++);
-    }
-
-    // input
-    {
-        BucketList input = st_insert(scope, "input", Integer, FALSE, FuncSymbol, 0, location++);
+        BucketList output = st_insert(scope, "output", Integer, FALSE, FuncSymbol, 0, location++);
         TreeNode param;
         param.isarray = FALSE;
         param.attr.name = "";
         param.type = Integer;
-        addFuncArg(input, &param);
+        addFuncArg(output, &param);
+    }
+
+    // input
+    {
+        st_insert(scope, "input", Integer, FALSE, FuncSymbol, 0, location++);
     }
     return location;
 }
@@ -173,8 +179,10 @@ static void insertNode(TreeNode* t)
                 case CompoundK:
                     if (!is_func_compound)
                     {
-                        scope_stack_push(
-                            create_ScopeList(pair->scope, "compound"), 0);
+                        ScopeList newScope =
+                            create_ScopeList(pair->scope, "compound");
+                        scope_stack_push(newScope, 0);
+                        t->scope = newScope;
                         pair->location++;
                     }
                     is_func_compound = FALSE;
@@ -199,40 +207,42 @@ static void insertNode(TreeNode* t)
                         break;
                     }
                     current_function = st_insert(pair->scope,
-                                  t->attr.name,
-                                  t->type,
-                                  t->isarray,
-                                  FuncSymbol,
-                                  t->lineno,
-                                  pair->location++);
+                                                 t->attr.name,
+                                                 t->type,
+                                                 t->isarray,
+                                                 FuncSymbol,
+                                                 t->lineno,
+                                                 pair->location++);
                     if (!current_function)
                     {
                         redeclaredError(t);
                     }
-                    scope_stack_push(
-                        create_ScopeList(pair->scope, t->attr.name), 0);
+                    ScopeList newScope =
+                        create_ScopeList(pair->scope, t->attr.name);
+                    scope_stack_push(newScope, 0);
+                    t->scope = newScope;
                     is_func_compound = TRUE;
                     break;
                 case VarDeclarationK:
                     if (!st_insert(pair->scope,
-                                  t->attr.name,
-                                  t->type,
-                                  t->isarray,
-                                  VarSymbol,
-                                  t->lineno,
-                                  pair->location++))
+                                   t->attr.name,
+                                   t->type,
+                                   t->isarray,
+                                   VarSymbol,
+                                   t->lineno,
+                                   pair->location++))
                     {
                         redeclaredError(t);
                     }
                     break;
                 case ParameterK:
                     if (!st_insert(pair->scope,
-                                  t->attr.name,
-                                  t->type,
-                                  t->isarray,
-                                  VarSymbol,
-                                  t->lineno,
-                                  pair->location++))
+                                   t->attr.name,
+                                   t->type,
+                                   t->isarray,
+                                   VarSymbol,
+                                   t->lineno,
+                                   pair->location++))
                     {
                         redeclaredError(t);
                     }
@@ -247,7 +257,7 @@ static void insertNode(TreeNode* t)
     }
 }
 
-static void afterInsertNode(const TreeNode* t)
+static void afterInsertNode(TreeNode* t)
 {
     if (t->nodekind == StmtK && t->kind.stmt == CompoundK)
     {
@@ -269,6 +279,55 @@ void buildSymtab(TreeNode* syntaxTree)
     }
 }
 
+static void beforeCheckNode(TreeNode* t)
+{
+    switch (t->nodekind)
+    {
+        case ExpK:
+            switch (t->kind.exp)
+            {
+                case AssignmentK:
+                case OperatorK:
+                case ConstantK:
+                case CallK:
+                case VarK:
+                default:
+                    break;
+            }
+            break;
+        case StmtK:
+            switch (t->kind.stmt)
+            {
+                case CompoundK:
+                    if (t->scope)
+                    {
+                        scope_stack_push(t->scope, 0);
+                    }
+                    break;
+                case SelectionK:
+                case IterationK:
+                case ReturnK:
+                default:
+                    break;
+            }
+            break;
+        case DeclarationK:
+            switch (t->kind.declaration)
+            {
+                case FuncK:
+                    scope_stack_push(t->scope, 0);
+                    break;
+                case VarDeclarationK:
+                case ParameterK:
+                case VoidParameterK:
+                default:
+                    break;
+            }
+        default:
+            break;
+    }
+}
+
 /* Procedure checkNode performs
  * type checking at a single tree node
  */
@@ -286,114 +345,134 @@ void buildSymtab(TreeNode* syntaxTree)
 
 static void checkNode(TreeNode* t)
 {
-    // switch (t->nodekind)
-    // {
-    //     case ExpK:
-    //         switch (t->kind.exp)
-    //         {
-    //             case AssignmentK:
-    //             {
-    //                 ExpType lhs_type = t->child[0]->type;
-    //                 ExpType rhs_type = t->child[1]->type;
+    ScopeStackPair* pair = scope_stack_top();
+    switch (t->nodekind)
+    {
+        case ExpK:
+            switch (t->kind.exp)
+            {
+                case AssignmentK:
+                {
+                    ExpType lhs_type = t->child[0]->type;
+                    ExpType rhs_type = t->child[1]->type;
 
-    //                 if (lhs_type != Integer || rhs_type != Integer)
-    //                 {
-    //                     typeError(
-    //                         t, "assignment can only be done between
-    //                         integers.");
-    //                     break;
-    //                 }
-    //                 if (t->child[0]->isarray != t->child[1]->isarray)
-    //                 {
-    //                     typeError(t,
-    //                               "assignment between int array and int is
-    //                               not " "possible.");
-    //                     break;
-    //                 }
-    //                 t->type = Integer;
-    //                 t->isarray = t->child[0]->isarray;
-    //                 break;
-    //             }
-    //             case OperatorK:
-    //             {
-    //                 ExpType lhs_type = t->child[0]->type;
-    //                 ExpType rhs_type = t->child[1]->type;
+                    if (lhs_type != Integer || rhs_type != Integer)
+                    {
+                        typeError(
+                            t, "assignment can only be done between integers.");
+                        break;
+                    }
+                    if (t->child[0]->isarray != t->child[1]->isarray)
+                    {
+                        typeError(t,
+                                  "assignment between int array and int is not possible.");
+                        break;
+                    }
+                    t->type = Integer;
+                    t->isarray = t->child[0]->isarray;
+                    break;
+                }
+                case OperatorK:
+                {
+                    ExpType lhs_type = t->child[0]->type;
+                    ExpType rhs_type = t->child[1]->type;
 
-    //                 if (lhs_type != Integer || rhs_type != Integer)
-    //                 {
-    //                     typeError(t, "invalid operand type");
-    //                 }
-    //                 if (t->child[0]->isarray || t->child[1]->isarray)
-    //                 {
-    //                     typeError(
-    //                         t,
-    //                         "operations between array names are not
-    //                         possible.");
-    //                     break;
-    //                 }
-    //                 t->type = Integer;
-    //                 t->isarray = FALSE;
-    //                 break;
-    //             }
-    //             case CallK:
-    //             {
-    //                 BucketList bucket =
-    //                     st_lookup(scope_stack_top().scope, t->attr.name);
-    //                 if (!bucket)
-    //                 {
-    //                     break;
-    //                 }
+                    if (lhs_type != Integer || rhs_type != Integer)
+                    {
+                        typeError(t, "invalid operand type");
+                    }
+                    if (t->child[0]->isarray || t->child[1]->isarray)
+                    {
+                        typeError(
+                            t,
+                            "operations between array names are not possible.");
+                        break;
+                    }
+                    t->type = Integer;
+                    t->isarray = FALSE;
+                    break;
+                }
+                case CallK:
+                {
+                    BucketList bucket =
+                        st_lookup(scope_stack_top()->scope, t->attr.name);
+                    if (!bucket)
+                    {
+                        break;
+                    }
 
-    //                 // count arguments
-    //                 int count = 0;
-    //                 TreeNode* node = t->child[0];
-    //                 while (node)
-    //                 {
-    //                     ++count;
-    //                     node = node->sibling;
-    //                 }
+                    // count arguments
+                    int count = 0;
+                    TreeNode* node = t->child[0];
+                    while (node)
+                    {
+                        ++count;
+                        node = node->sibling;
+                    }
 
-    //                 // TODO:
-    //                 break;
-    //             }
-    //             case ConstantK:
-    //                 t->type = Integer;
-    //                 t->isarray = FALSE;
-    //                 break;
-    //             case VarK:
-    //                 // TODO:
-    //                 break;
-    //             case TypeK:
-    //                 t->type = Integer;
-    //                 break;
-    //             default:
-    //                 break;
-    //         }
-    //         break;
-    //     case StmtK:
-    //         switch (t->kind.stmt)
-    //         {
-    //             case CompoundK:
-    //             case SelectionK:
-    //             case IterationK:
-    //             case ReturnK:
-    //             default:
-    //                 break;
-    //         }
-    //         break;
-    //     case DeclarationK:
-    //         switch (t->kind.declaration)
-    //         {
-    //             case FuncK:
-    //             case VarDeclarationK:
-    //             case ParameterK:
-    //             case VoidParameterK:
-    //             default:
-    //                 break;
-    //         }
-    //     default:
-    //         break;
-    // }
+                    if (count != bucket->functionInfo.args_count)
+                    {
+                        argCountError(t, bucket->name, bucket->functionInfo.args_count, count);
+                    }
+
+                    FunctionArgsList arg = bucket->functionInfo.args;
+                    node = t->child[0];
+                    for (int j = 0; j < count; ++j)
+                    {
+                        if (arg->type != node->type)
+                        {
+                            char buf[101];
+                            snprintf(buf, 100, "The type of %dth argument of '%s' is different", j + 1, bucket->name);
+                            typeError(t, buf);
+                        }
+                    }
+
+                    // TODO:
+                    t->type = bucket->type;
+                    t->isarray = bucket->isarray;
+                    break;
+                }
+                case ConstantK:
+                    t->type = Integer;
+                    t->isarray = FALSE;
+                    break;
+                case VarK:
+                {
+                    BucketList bucket = st_lookup(pair->scope, t->attr.name);
+                    t->type = bucket->type;
+                    t->isarray = bucket->isarray;
+                    break;
+                }
+                default:
+                    break;
+            }
+            break;
+        case StmtK:
+            switch (t->kind.stmt)
+            {
+                case CompoundK:
+                    scope_stack_pop();
+                    break;
+                case SelectionK:
+                case IterationK:
+                case ReturnK:
+                default:
+                    break;
+            }
+            break;
+        case DeclarationK:
+            switch (t->kind.declaration)
+            {
+                case FuncK:
+                case VarDeclarationK:
+                case ParameterK:
+                case VoidParameterK:
+                default:
+                    break;
+            }
+        default:
+            break;
+    }
 }
 
 /* Procedure typeCheck performs type checking
@@ -401,5 +480,5 @@ static void checkNode(TreeNode* t)
  */
 void typeCheck(TreeNode* syntaxTree)
 {
-    traverse(syntaxTree, nullProc, checkNode);
+    traverse(syntaxTree, beforeCheckNode, checkNode);
 }
