@@ -1,6 +1,8 @@
 cminus_cimpl
 cminus_lex
+cminus_semantic
 lex.yy.c
 *.o
 .vscode
 *.txt
+y.*

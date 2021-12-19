@@ -47,6 +47,8 @@
 /* MAXRESERVED = the number of reserved words */
 #define MAXRESERVED 8
 
+#define MAXSCOPEDEPTH 1024
+
 /* Yacc/Bison generates its own integer values
  * for tokens
  */
@@ -95,11 +97,17 @@ typedef enum
     VoidParameterK
 } DeclarationKind;
 
+typedef enum
+{
+    FuncSymbol,
+    VarSymbol
+} SymbolKind;
+
 /* ExpType is used for type checking */
 typedef enum
 {
     Integer,
-    Void
+    Void,
 } ExpType;
 
 #define MAXCHILDREN 3
