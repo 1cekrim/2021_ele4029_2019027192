@@ -4,3 +4,6 @@ void main(void)
     int b[2];
     a + b;
 }
+
+
+/* error at 5 */

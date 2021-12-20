@@ -1,0 +1,11 @@
+int
+
+
+a;
+
+int
+
+
+a;
+
+/* error at 9 */

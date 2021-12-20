@@ -1,0 +1,11 @@
+int main(void)
+{
+    if (
+
+
+        c
+    )
+    {}
+}
+
+/* error at 6 */

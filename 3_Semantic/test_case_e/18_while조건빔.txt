@@ -1,6 +1,9 @@
 void main(void)
 {
-    void a[3];
+    while ()
+    {
+        
+    }
 }
 
 

@@ -2,3 +2,6 @@ int a(void)
 {
     void c;
 }
+
+
+/* error at 3 */

@@ -2,3 +2,5 @@ void a(void)
 {
 	return 1;
 }
+
+/* error at 3 */

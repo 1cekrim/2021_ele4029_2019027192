@@ -1,3 +1,6 @@
 int a(void b)
 {
 }
+
+
+/* error at 1 */

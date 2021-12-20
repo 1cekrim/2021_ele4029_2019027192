@@ -1,0 +1,7 @@
+void foo(void a[])
+{
+    
+}
+
+
+/* error at 1 */

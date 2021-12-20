@@ -1,0 +1,11 @@
+int main(void)
+{
+    while (
+
+
+        c
+    )
+    {}
+}
+
+/* error at 6 */

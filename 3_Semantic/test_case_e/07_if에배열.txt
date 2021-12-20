@@ -6,3 +6,6 @@ void main(void)
         
     }
 }
+
+
+/* error at 4 */
