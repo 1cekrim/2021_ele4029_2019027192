@@ -254,6 +254,6 @@ void addFuncArg(BucketList func, TreeNode* param)
     memset(*arg, 0, sizeof(struct FunctionArgsListRec));
     (*arg)->isarray = param->isarray;
     (*arg)->name = param->attr.name;
-    (*arg)->type = (*arg)->type;
+    (*arg)->type = param->type;
     ++func->functionInfo.args_count;
 }
