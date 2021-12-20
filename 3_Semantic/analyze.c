@@ -166,7 +166,8 @@ static void insertNode(TreeNode* t)
                 case VarK:
                     if (st_insert_lineno(pair->scope, t->attr.name, t->lineno))
                     {
-                        undeclaredError(t);
+                        // t->type = Invalid;
+                        // undeclaredError(t);
                     }
                     break;
                 default:
@@ -357,6 +358,11 @@ static void checkNode(TreeNode* t)
                     ExpType lhs_type = t->child[0]->type;
                     ExpType rhs_type = t->child[1]->type;
 
+                    if (lhs_type == Invalid || rhs_type == Invalid)
+                    {
+                        break;
+                    }
+
                     if (lhs_type != Integer || rhs_type != Integer)
                     {
                         typeError(
@@ -378,6 +384,11 @@ static void checkNode(TreeNode* t)
                     ExpType lhs_type = t->child[0]->type;
                     ExpType rhs_type = t->child[1]->type;
 
+                    if (lhs_type == Invalid || rhs_type == Invalid)
+                    {
+                        break;
+                    }
+
                     if (lhs_type != Integer || rhs_type != Integer)
                     {
                         typeError(t, "invalid operand type");
@@ -396,9 +407,12 @@ static void checkNode(TreeNode* t)
                 case CallK:
                 {
                     BucketList bucket =
-                        st_lookup(scope_stack_top()->scope, t->attr.name);
+                        st_lookup(pair->scope, t->attr.name);
                     if (!bucket)
                     {
+                        t->type = Invalid;
+                        t->isarray = FALSE;
+                        undeclaredError(t);
                         break;
                     }
 
@@ -441,6 +455,13 @@ static void checkNode(TreeNode* t)
                 case VarK:
                 {
                     BucketList bucket = st_lookup(pair->scope, t->attr.name);
+                    if (!bucket)
+                    {
+                        t->type = Invalid;
+                        t->isarray = FALSE;
+                        undeclaredError(t);
+                        break;
+                    }
                     t->type = bucket->type;
                     if (!bucket->isarray && t->child[0])
                     {
@@ -468,11 +489,15 @@ static void checkNode(TreeNode* t)
                 case SelectionK:
                     if (!t->child[0])
                     {
-                        typeError(t, "The conditional statement of if must not be empty");
+                        typeError(t->child[0], "The conditional statement of if must not be empty");
+                    }
+                    else if (t->child[0]->type == Invalid)
+                    {
+                        // do nothing
                     }
                     else if (t->child[0]->type != Integer || t->child[0]->isarray)
                     {
-                        typeError(t, "The type of if condition can only be integer.");
+                        typeError(t->child[0], "The type of if condition can only be integer.");
                     }
                     break;
                 case IterationK:
@@ -480,16 +505,20 @@ static void checkNode(TreeNode* t)
                     {
                         typeError(t, "The conditional statement of loop must not be empty");
                     }
+                    else if (t->child[0]->type == Invalid)
+                    {
+                        // do nothing
+                    }
                     else if (t->child[0]->type != Integer || t->child[0]->isarray)
                     {
-                        typeError(t, "The type of loop condition can only be integer.");
+                        typeError(t->child[0], "The type of loop condition can only be integer.");
                     }
                     break;
                 case ReturnK:
                 {
                     if (current_function->type == Void && t->child[0])
                     {
-                        typeError(t, "Function of type 'void' cannot return a value.");
+                        typeError(t->child[0], "Function of type 'void' cannot return a value.");
                     }
                     else if (current_function->type == Integer && !current_function->isarray)
                     {
@@ -497,9 +526,13 @@ static void checkNode(TreeNode* t)
                         {
                             typeError(t, "The return statement of int type function must contain a value.");
                         }
+                        else if (t->child[0]->type == Invalid)
+                        {
+                            // do nothing
+                        }
                         else if (t->child[0]->type != current_function->type || t->child[0]->isarray != current_function->isarray)
                         {
-                            typeError(t, "The type of function and the type of the return value must always be the same");
+                            typeError(t->child[0], "The type of function and the type of the return value must always be the same");
                         }
                         else
                         {
@@ -523,6 +556,9 @@ static void checkNode(TreeNode* t)
                     }
                     break;
                 case FuncK:
+                    t->type = current_function->type;
+                    t->isarray = current_function->isarray;
+                    break;
                 case VoidParameterK:
                 default:
                     break;

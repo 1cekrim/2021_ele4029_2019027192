@@ -106,6 +106,7 @@ typedef enum
 /* ExpType is used for type checking */
 typedef enum
 {
+    Invalid,
     Integer,
     Void,
 } ExpType;
