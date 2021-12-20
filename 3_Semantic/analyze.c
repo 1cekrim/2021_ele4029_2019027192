@@ -42,7 +42,7 @@ static void declarationError(TreeNode* t, char* message)
 
 static void argCountError(TreeNode* t, char* funcName, int paramCount, int argCount)
 {
-    fprintf(listing, "The %s function has %d parameters, but only %d entered.\n", t->lineno, funcName, paramCount, argCount);
+    fprintf(listing, "function call error at line %d: The %s function has %d parameters, but only %d entered.\n", t->lineno, funcName, paramCount, argCount);
     Error = TRUE;
 }
 
@@ -71,13 +71,13 @@ traverse(TreeNode* t, void (*preProc)(TreeNode*), void (*postProc)(TreeNode*))
  * generate preorder-only or postorder-only
  * traversals from traverse
  */
-static void nullProc(TreeNode* t)
-{
-    if (t == NULL)
-        return;
-    else
-        return;
-}
+// static void nullProc(TreeNode* t)
+// {
+//     if (t == NULL)
+//         return;
+//     else
+//         return;
+// }
 
 typedef struct
 {
@@ -143,6 +143,7 @@ static ScopeList init_global_scope()
     return global_scope;
 }
 
+static BucketList current_function;
 /* Procedure insertNode inserts
  * identifiers stored in t into
  * the symbol table
@@ -150,7 +151,6 @@ static ScopeList init_global_scope()
 static void insertNode(TreeNode* t)
 {
     static int is_func_compound = FALSE;
-    static BucketList current_function;
     ScopeStackPair* pair = scope_stack_top();
     switch (t->nodekind)
     {
@@ -316,6 +316,7 @@ static void beforeCheckNode(TreeNode* t)
             {
                 case FuncK:
                     scope_stack_push(t->scope, 0);
+                    current_function = st_lookup(t->scope, t->attr.name);
                     break;
                 case VarDeclarationK:
                 case ParameterK:
@@ -413,6 +414,7 @@ static void checkNode(TreeNode* t)
                     if (count != bucket->functionInfo.args_count)
                     {
                         argCountError(t, bucket->name, bucket->functionInfo.args_count, count);
+                        break;
                     }
 
                     FunctionArgsList arg = bucket->functionInfo.args;
@@ -440,7 +442,17 @@ static void checkNode(TreeNode* t)
                 {
                     BucketList bucket = st_lookup(pair->scope, t->attr.name);
                     t->type = bucket->type;
-                    t->isarray = bucket->isarray;
+                    if (!bucket->isarray && t->child[0])
+                    {
+                        typeError(t, "Cannot use the [] operator on non-array variables.");
+                        break;
+                    }
+                    if (t->child[0] && (t->child[0]->type != Integer || t->child[0]->isarray))
+                    {
+                        typeError(t, "The index of the array must be integer.");
+                        break;
+                    }
+                    t->isarray = bucket->isarray && !t->child[0];
                     break;
                 }
                 default:
@@ -454,8 +466,48 @@ static void checkNode(TreeNode* t)
                     scope_stack_pop();
                     break;
                 case SelectionK:
+                    if (!t->child[0])
+                    {
+                        typeError(t, "The conditional statement of if must not be empty");
+                    }
+                    else if (t->child[0]->type != Integer || t->child[0]->isarray)
+                    {
+                        typeError(t, "The type of if condition can only be integer.");
+                    }
+                    break;
                 case IterationK:
+                    if (!t->child[0])
+                    {
+                        typeError(t, "The conditional statement of loop must not be empty");
+                    }
+                    else if (t->child[0]->type != Integer || t->child[0]->isarray)
+                    {
+                        typeError(t, "The type of loop condition can only be integer.");
+                    }
+                    break;
                 case ReturnK:
+                {
+                    if (current_function->type == Void && t->child[0])
+                    {
+                        typeError(t, "Function of type 'void' cannot return a value.");
+                    }
+                    else if (current_function->type == Integer && !current_function->isarray)
+                    {
+                        if (!t->child[0])
+                        {
+                            typeError(t, "The return statement of int type function must contain a value.");
+                        }
+                        else if (t->child[0]->type != current_function->type || t->child[0]->isarray != current_function->isarray)
+                        {
+                            typeError(t, "The type of function and the type of the return value must always be the same");
+                        }
+                        else
+                        {
+                            // no problem
+                        }
+                    }
+                    break;
+                }
                 default:
                     break;
             }
@@ -463,9 +515,14 @@ static void checkNode(TreeNode* t)
         case DeclarationK:
             switch (t->kind.declaration)
             {
-                case FuncK:
                 case VarDeclarationK:
                 case ParameterK:
+                    if (t->type != Integer)
+                    {
+                        typeError(t, "Variable type must be integer or integer array");
+                    }
+                    break;
+                case FuncK:
                 case VoidParameterK:
                 default:
                     break;
