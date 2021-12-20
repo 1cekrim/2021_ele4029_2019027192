@@ -1,0 +1,10 @@
+void f(int a[])
+{
+
+}
+
+void main(void)
+{
+    int a[3];
+    f(a);
+}

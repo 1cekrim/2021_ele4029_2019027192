@@ -6,3 +6,4 @@ lex.yy.c
 .vscode
 *.txt
 y.*
+!test_case_*/*.txt
