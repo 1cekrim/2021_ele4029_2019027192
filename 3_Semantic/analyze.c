@@ -118,7 +118,7 @@ static int built_in_functions(ScopeList scope, int location)
 {
     // output
     {
-        BucketList output = st_insert(scope, "output", Integer, FALSE, FuncSymbol, 0, location++);
+        BucketList output = st_insert(scope, "output", Void, FALSE, FuncSymbol, 0, location++);
         TreeNode param;
         param.isarray = FALSE;
         param.attr.name = "";
