@@ -9,6 +9,7 @@
 #include "globals.h"
 #include "symtab.h"
 #include "analyze.h"
+#include "util.h"
 
 static void typeError(TreeNode* t, char* message)
 {
@@ -180,8 +181,10 @@ static void insertNode(TreeNode* t)
                 case CompoundK:
                     if (!is_func_compound)
                     {
+                        char buf[101];
+                        snprintf(buf, 100, "%s_%d", pair->scope->name, t->lineno);
                         ScopeList newScope =
-                            create_ScopeList(pair->scope, "compound");
+                            create_ScopeList(pair->scope, copyString(buf));
                         scope_stack_push(newScope, 0);
                         t->scope = newScope;
                         pair->location++;
@@ -556,9 +559,6 @@ static void checkNode(TreeNode* t)
                     }
                     break;
                 case FuncK:
-                    t->type = current_function->type;
-                    t->isarray = current_function->isarray;
-                    break;
                 case VoidParameterK:
                 default:
                     break;
