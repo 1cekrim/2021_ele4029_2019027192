@@ -121,6 +121,7 @@ fun_declaration     : type_specifier saveName
                         $$->attr.name = savedName;
                         $$->lineno = savedLineNo;
                         $$->type = $1->type;
+                        $$->isarray = $1->isarray;
                       }
                       LPAREN params RPAREN compound_stmt
                       {
